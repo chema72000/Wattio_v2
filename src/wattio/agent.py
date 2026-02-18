@@ -30,11 +30,27 @@ class Agent:
         self._history: list[Message] = []
         self._diary_writer = None
 
+        # Load recent diary for session continuity
+        from wattio.diary.loader import load_recent_diary
+        diary_history = load_recent_diary(project_dir)
+        if diary_history:
+            diary_context = (
+                "## Previous sessions\n\n"
+                "Below are highlights from recent sessions. Use this to recall "
+                "past decisions, TODOs, and context. Do NOT tell the engineer "
+                "to check the diary — you already have it.\n\n"
+                f"{diary_history}"
+            )
+            console.print("  [dim]Diary loaded from previous sessions.[/]")
+        else:
+            diary_context = ""
+
         # Build system prompt
         template = SYSTEM_PROMPT_PATH.read_text()
         system_text = template.format(
             project_dir=project_dir.name,
             date=date.today().isoformat(),
+            diary_context=diary_context,
         )
         self._system_message = Message.system(system_text)
 
