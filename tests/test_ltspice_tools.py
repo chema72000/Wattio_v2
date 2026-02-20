@@ -52,9 +52,11 @@ class TestFindLTspiceExe:
             assert result == Path("/usr/bin/ltspice.exe")
 
     def test_not_found(self) -> None:
-        with patch("wattio.tools.ltspice_helpers.shutil.which", return_value=None):
+        with (
+            patch("wattio.tools.ltspice_helpers.shutil.which", return_value=None),
+            patch.object(Path, "is_file", return_value=False),
+        ):
             result = find_ltspice_exe()
-            # On non-Windows, standard paths won't exist either
             assert result is None
 
 
@@ -313,7 +315,7 @@ class TestLTspiceRunErrors:
         tool = LTspiceRunTool()
         with (
             patch("wattio.tools.ltspice_helpers.platform.system", return_value="Windows"),
-            patch("wattio.tools.ltspice_helpers.shutil.which", return_value=None),
+            patch("wattio.tools.ltspice_helpers.find_ltspice_exe", return_value=None),
         ):
             result = await tool.execute(
                 tmp_project, schematic_path="01 - LTspice/flyback/test.asc"

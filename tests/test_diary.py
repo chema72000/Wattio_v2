@@ -52,7 +52,7 @@ class TestDiaryExport:
         # Create a diary markdown file
         diary_dir = tmp_project / "wattio" / "diary"
         md_file = diary_dir / "2026-01-01.md"
-        md_file.write_text("# Wattio Session Diary — 2026-01-01\n\n## Session 14:00\n\nHello\n")
+        md_file.write_text("# Wattio Session Diary — 2026-01-01\n\n## Session 14:00\n\nHello\n", encoding="utf-8")
 
         result = export_diary(tmp_project, "2026-01-01")
         assert "Exported" in result
