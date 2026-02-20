@@ -63,6 +63,7 @@ class LTspiceRunTool(BaseTool):
             eng,
             ensure_sim_workdir,
             find_ltspice_exe,
+            is_in_sim_workdir,
             validate_schematic_path,
         )
 
@@ -91,9 +92,12 @@ class LTspiceRunTool(BaseTool):
             return ToolResult(tool_call_id="", content=result, is_error=True)
         original_asc = result
 
-        # ── Create working copy ─────────────────────────────────
+        # ── Create working copy (reuse if already edited) ──────
         work_dir = ensure_sim_workdir(project_dir)
-        work_asc = create_working_copy(original_asc, work_dir)
+        if is_in_sim_workdir(original_asc, project_dir):
+            work_asc = original_asc  # already a working copy (e.g. from ltspice_edit)
+        else:
+            work_asc = create_working_copy(original_asc, work_dir)
 
         # ── Apply parameter changes ─────────────────────────────
         param_changes = kwargs.get("param_changes", {})

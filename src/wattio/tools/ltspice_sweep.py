@@ -81,6 +81,7 @@ class LTspiceSweepTool(BaseTool):
             ensure_results_dir,
             ensure_sim_workdir,
             find_ltspice_exe,
+            is_in_sim_workdir,
             validate_schematic_path,
         )
 

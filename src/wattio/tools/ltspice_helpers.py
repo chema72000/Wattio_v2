@@ -100,6 +100,16 @@ def ensure_sim_workdir(project_dir: Path) -> Path:
 # ── Working copy ────────────────────────────────────────────────────
 
 
+def is_in_sim_workdir(asc_path: Path, project_dir: Path) -> bool:
+    """Return True if the .asc file is already inside wattio/sim_work/."""
+    sim_dir = project_dir / "wattio" / "sim_work"
+    try:
+        asc_path.resolve().relative_to(sim_dir.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def create_working_copy(
     original: Path, work_dir: Path, suffix: str = ""
 ) -> Path:
