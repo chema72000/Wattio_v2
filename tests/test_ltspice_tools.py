@@ -274,7 +274,7 @@ class TestComputeMeasurements:
 
 class TestToolDiscovery:
     def test_ltspice_tools_registered(self) -> None:
-        """All three LTspice tools should be auto-discovered."""
+        """All four LTspice tools should be auto-discovered."""
         from wattio.tools.registry import ToolRegistry
 
         registry = ToolRegistry.auto_discover()
@@ -282,6 +282,7 @@ class TestToolDiscovery:
         assert "ltspice_run" in names
         assert "ltspice_sweep" in names
         assert "ltspice_plot" in names
+        assert "ltspice_edit" in names
 
     def test_helpers_not_registered(self) -> None:
         """The helpers module should NOT be registered as a tool."""
@@ -413,3 +414,372 @@ class TestLTspicePlotErrors:
         )
         assert result.is_error
         assert "outside" in result.content.lower()
+
+
+# ── LTspice Edit tool ─────────────────────────────────────────────
+
+
+class TestLTspiceEditListComponents:
+    @pytest.mark.asyncio
+    async def test_list_all_components(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor(
+            components=["R1", "R2", "C1"],
+            values={"R1": "10k", "R2": "20k", "C1": "100n"},
+        )
+
+        with patch("wattio.tools.ltspice_edit.AscEditor", mock_editor, create=True):
+            # Patch at the import target inside execute
+            with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+                result = await tool.execute(
+                    tmp_project,
+                    schematic_path="01 - LTspice/flyback/test.asc",
+                    action="list_components",
+                )
+
+        assert not result.is_error
+        assert "R1" in result.content
+        assert "10k" in result.content
+        assert "C1" in result.content
+        assert "3 component(s)" in result.content
+
+    @pytest.mark.asyncio
+    async def test_list_filtered(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor(
+            components=["R1", "R2"],
+            values={"R1": "10k", "R2": "20k"},
+            filtered_components={"R": ["R1", "R2"]},
+        )
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="list_components",
+                component_filter="R",
+            )
+
+        assert not result.is_error
+        assert "R1" in result.content
+        assert "R2" in result.content
+        assert "filter: R" in result.content
+
+    @pytest.mark.asyncio
+    async def test_list_empty(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor(components=[], values={})
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="list_components",
+            )
+
+        assert not result.is_error
+        assert "No components found" in result.content
+
+
+class TestLTspiceEditSetValue:
+    @pytest.mark.asyncio
+    async def test_set_value_success(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="set_value",
+                component="R1",
+                value="20k",
+            )
+
+        assert not result.is_error
+        assert "R1" in result.content
+        assert "20k" in result.content
+        # Verify the mock was called correctly
+        instance = mock_editor.return_value
+        instance.set_component_value.assert_called_once_with("R1", "20k")
+        instance.write_netlist.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_set_value_missing_component(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="set_value",
+                value="20k",
+            )
+
+        assert result.is_error
+        assert "component" in result.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_set_value_missing_value(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="set_value",
+                component="R1",
+            )
+
+        assert result.is_error
+        assert "value" in result.content.lower()
+
+
+class TestLTspiceEditRemoveComponent:
+    @pytest.mark.asyncio
+    async def test_remove_success(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="remove_component",
+                component="C2",
+            )
+
+        assert not result.is_error
+        assert "C2" in result.content
+        instance = mock_editor.return_value
+        instance.remove_component.assert_called_once_with("C2")
+
+    @pytest.mark.asyncio
+    async def test_remove_missing_component(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="remove_component",
+            )
+
+        assert result.is_error
+        assert "component" in result.content.lower()
+
+
+class TestLTspiceEditSetModel:
+    @pytest.mark.asyncio
+    async def test_set_model_success(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="set_model",
+                component="D1",
+                model="1N4148",
+            )
+
+        assert not result.is_error
+        assert "D1" in result.content
+        assert "1N4148" in result.content
+        instance = mock_editor.return_value
+        instance.set_element_model.assert_called_once_with("D1", "1N4148")
+
+    @pytest.mark.asyncio
+    async def test_set_model_missing_params(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="set_model",
+                component="D1",
+            )
+
+        assert result.is_error
+        assert "model" in result.content.lower()
+
+
+class TestLTspiceEditDirectives:
+    @pytest.mark.asyncio
+    async def test_add_directive(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="add_directive",
+                directive=".tran 500m",
+            )
+
+        assert not result.is_error
+        assert ".tran 500m" in result.content
+        instance = mock_editor.return_value
+        instance.add_instruction.assert_called_once_with(".tran 500m")
+
+    @pytest.mark.asyncio
+    async def test_remove_directive(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="remove_directive",
+                directive=".tran",
+            )
+
+        assert not result.is_error
+        assert ".tran" in result.content
+        instance = mock_editor.return_value
+        instance.remove_instruction.assert_called_once_with(".tran")
+
+    @pytest.mark.asyncio
+    async def test_add_directive_missing_param(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="add_directive",
+            )
+
+        assert result.is_error
+        assert "directive" in result.content.lower()
+
+
+class TestLTspiceEditErrors:
+    @pytest.mark.asyncio
+    async def test_invalid_action(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="01 - LTspice/flyback/test.asc",
+                action="add_component",
+            )
+
+        assert result.is_error
+        assert "Invalid action" in result.content
+
+    @pytest.mark.asyncio
+    async def test_missing_schematic(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_edit import LTspiceEditTool
+
+        tool = LTspiceEditTool()
+        mock_editor = _make_mock_asc_editor()
+
+        with patch.dict("sys.modules", {"PyLTSpice": _fake_pyltspice(mock_editor)}):
+            result = await tool.execute(
+                tmp_project,
+                schematic_path="nonexistent.asc",
+                action="list_components",
+            )
+
+        assert result.is_error
+        assert "not found" in result.content.lower()
+
+
+class TestLTspiceEditDiscovery:
+    def test_ltspice_edit_registered(self) -> None:
+        """ltspice_edit should be auto-discovered by the registry."""
+        from wattio.tools.registry import ToolRegistry
+
+        registry = ToolRegistry.auto_discover()
+        names = [t.name for t in registry.all_tools]
+        assert "ltspice_edit" in names
+
+
+# ── Mock helpers for ltspice_edit tests ────────────────────────────
+
+
+def _make_mock_asc_editor(
+    components: list[str] | None = None,
+    values: dict[str, str] | None = None,
+    filtered_components: dict[str, list[str]] | None = None,
+) -> Any:
+    """Create a mock AscEditor class that returns predictable data.
+
+    Args:
+        components: List of component names for get_components().
+        values: Dict of component name to value for get_component_value().
+        filtered_components: Dict of prefix to component list for filtered get_components(prefix).
+    """
+    from unittest.mock import MagicMock
+
+    components = components or []
+    values = values or {}
+    filtered_components = filtered_components or {}
+
+    mock_cls = MagicMock()
+    instance = MagicMock()
+    mock_cls.return_value = instance
+
+    def get_components(prefix: str | None = None) -> list[str]:
+        if prefix and prefix in filtered_components:
+            return filtered_components[prefix]
+        if prefix is None:
+            return components
+        return components
+
+    def get_component_value(comp: str) -> str:
+        return values.get(comp, "—")
+
+    instance.get_components = MagicMock(side_effect=get_components)
+    instance.get_component_value = MagicMock(side_effect=get_component_value)
+
+    return mock_cls
+
+
+def _fake_pyltspice(mock_editor: Any) -> Any:
+    """Create a fake PyLTSpice module with AscEditor set to the mock."""
+    from types import ModuleType
+
+    mod = ModuleType("PyLTSpice")
+    mod.AscEditor = mock_editor  # type: ignore[attr-defined]
+    return mod

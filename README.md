@@ -113,7 +113,7 @@ your-project/
 
 ## Tools
 
-Wattio has 8 built-in tools the LLM can call:
+Wattio has 9 built-in tools the LLM can call:
 
 | Tool | What it does |
 |------|-------------|
@@ -122,6 +122,7 @@ Wattio has 8 built-in tools the LLM can call:
 | `magnetic_suggest` | Search OTS magnetic components via the magnetic-suggest CLI |
 | `knowledge_search` | Search your curated markdown notes |
 | `diary_note` | Add decisions, TODOs, recommendations to the session diary |
+| `ltspice_edit` | Modify schematics — change values, remove components, add/remove directives (Windows only) |
 | `ltspice_run` | Run LTspice simulation with parameter changes (Windows only) |
 | `ltspice_sweep` | Sweep a parameter, plot measurement vs param (Windows only) |
 | `ltspice_plot` | Plot waveforms from .raw files (Windows only) |
@@ -288,6 +289,7 @@ User input (terminal)
                      │  knowledge_   │  Search curated .md files
                      │  search       │
                      │  diary_note   │  Record decisions & TODOs
+                     │  ltspice_edit │  Edit schematics (Win)
                      │  ltspice_run  │  Run sim + measure (Win)
                      │  ltspice_     │  Param sweep + plot (Win)
                      │  sweep        │
@@ -319,6 +321,7 @@ src/wattio/
 │   ├── knowledge_search.py  # Curated knowledge search
 │   ├── diary_note.py    # Explicit diary entries
 │   ├── ltspice_helpers.py   # Shared LTspice utilities (not a tool)
+│   ├── ltspice_edit.py      # Schematic editor (values, models, directives)
 │   ├── ltspice_run.py       # Single simulation + measurements
 │   ├── ltspice_sweep.py     # Parameter sweep + plot
 │   └── ltspice_plot.py      # Waveform plotting from .raw
