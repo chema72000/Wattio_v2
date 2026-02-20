@@ -65,4 +65,6 @@ def ensure_wattio_dir(project_dir: Path) -> Path:
     wattio_dir = project_dir / "wattio"
     (wattio_dir / "diary").mkdir(parents=True, exist_ok=True)
     (wattio_dir / "knowledge" / "curated").mkdir(parents=True, exist_ok=True)
+    (wattio_dir / "results").mkdir(parents=True, exist_ok=True)
+    (wattio_dir / "sim_work").mkdir(parents=True, exist_ok=True)
     return wattio_dir

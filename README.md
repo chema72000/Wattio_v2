@@ -99,10 +99,12 @@ your-project/
 │   ├── diary/
 │   │   ├── 2026-02-16.md        # today's session log
 │   │   └── 2026-02-16.docx      # auto-exported on exit
-│   └── knowledge/
-│       └── curated/             # your design notes (see Knowledge)
-│           ├── derating-rules.md
-│           └── preferred-vendors.md
+│   ├── knowledge/
+│   │   └── curated/             # your design notes (see Knowledge)
+│   │       ├── derating-rules.md
+│   │       └── preferred-vendors.md
+│   ├── sim_work/                # LTspice working copies (auto-managed)
+│   └── results/                 # plots and exports (PNG files)
 ├── 01 - LTspice/
 │   └── flyback/
 │       └── circuit.asc
@@ -111,7 +113,7 @@ your-project/
 
 ## Tools
 
-Wattio has 5 built-in tools the LLM can call:
+Wattio has 8 built-in tools the LLM can call:
 
 | Tool | What it does |
 |------|-------------|
@@ -120,6 +122,9 @@ Wattio has 5 built-in tools the LLM can call:
 | `magnetic_suggest` | Search OTS magnetic components via the magnetic-suggest CLI |
 | `knowledge_search` | Search your curated markdown notes |
 | `diary_note` | Add decisions, TODOs, recommendations to the session diary |
+| `ltspice_run` | Run LTspice simulation with parameter changes (Windows only) |
+| `ltspice_sweep` | Sweep a parameter, plot measurement vs param (Windows only) |
+| `ltspice_plot` | Plot waveforms from .raw files (Windows only) |
 
 ### Adding a new tool
 
@@ -225,6 +230,9 @@ When you ask "what are our derating rules?", Wattio finds and cites this file in
 | httpx | Async HTTP for LLM APIs (no SDK) |
 | python-dotenv | Load .env files |
 | python-docx | Diary .docx export |
+| PyLTSpice | LTspice schematic editing + .raw parsing |
+| matplotlib | Waveform and sweep plotting |
+| numpy | Numerical computation for measurements |
 
 No LangChain. No OpenAI SDK. No Anthropic SDK. Raw httpx to both providers.
 
@@ -280,6 +288,10 @@ User input (terminal)
                      │  knowledge_   │  Search curated .md files
                      │  search       │
                      │  diary_note   │  Record decisions & TODOs
+                     │  ltspice_run  │  Run sim + measure (Win)
+                     │  ltspice_     │  Param sweep + plot (Win)
+                     │  sweep        │
+                     │  ltspice_plot │  Waveform plotting (Win)
                      └───────────────┘
 ```
 
@@ -305,7 +317,11 @@ src/wattio/
 │   ├── file_reader.py   # Read project files
 │   ├── magnetic_suggest.py  # OTS magnetics subprocess
 │   ├── knowledge_search.py  # Curated knowledge search
-│   └── diary_note.py    # Explicit diary entries
+│   ├── diary_note.py    # Explicit diary entries
+│   ├── ltspice_helpers.py   # Shared LTspice utilities (not a tool)
+│   ├── ltspice_run.py       # Single simulation + measurements
+│   ├── ltspice_sweep.py     # Parameter sweep + plot
+│   └── ltspice_plot.py      # Waveform plotting from .raw
 ├── diary/
 │   ├── writer.py        # Markdown diary writer
 │   └── export.py        # Markdown → docx

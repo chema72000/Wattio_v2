@@ -15,6 +15,9 @@ dependencies = [
     "python-dotenv>=1.0",
     "python-docx>=1.0",
     "tomli>=2.0; python_version < '3.11'",
+    "PyLTSpice>=5.0",
+    "matplotlib>=3.5",
+    "numpy>=1.21",
 ]
 
 [project.optional-dependencies]
