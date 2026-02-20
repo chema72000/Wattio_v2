@@ -51,12 +51,12 @@ class DiaryNoteTool(BaseTool):
         writer._ensure_session_header()
 
         icons = {
-            "decision": "\u2705",     # checkmark
-            "todo": "\u2610",         # ballot box
+            "decision": "\u2705",       # checkmark
+            "todo": "\u2610",           # ballot box
             "recommendation": "\u2b50", # star
-            "note": "\ud83d\udccc",    # pin
+            "note": "\U0001F4CC",       # pin 📌
         }
-        icon = icons.get(category, "\ud83d\udccc")
+        icon = icons.get(category, "\U0001F4CC")
         label = category.upper()
 
         with open(writer._file, "a", encoding="utf-8") as f:
