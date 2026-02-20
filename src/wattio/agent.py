@@ -16,7 +16,7 @@ console = Console()
 
 SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
-MAX_TOOL_ROUNDS = 5  # Safety limit on consecutive tool calls
+MAX_TOOL_ROUNDS = 20  # Safety limit on consecutive tool calls
 
 
 class Agent:
