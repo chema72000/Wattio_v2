@@ -42,6 +42,8 @@ def export_diary(project_dir: Path, date_str: str) -> str:
     font.name = "Calibri"
     font.size = Pt(11)
 
+    img_re = re.compile(r"^!\[([^\]]*)\]\(([^)]+)\)$")
+
     for line in content.splitlines():
         line = line.rstrip()
 
@@ -51,6 +53,16 @@ def export_diary(project_dir: Path, date_str: str) -> str:
             doc.add_heading(line[3:], level=2)
         elif line.startswith("### "):
             doc.add_heading(line[4:], level=3)
+        elif line.startswith("#### "):
+            doc.add_heading(line[5:], level=4)
+        elif img_re.match(line):
+            m = img_re.match(line)
+            alt_text, img_rel = m.group(1), m.group(2)
+            img_path = project_dir / img_rel
+            try:
+                doc.add_picture(str(img_path), width=Inches(5.5))
+            except Exception:
+                doc.add_paragraph(f"[Image not found: {alt_text}]")
         elif line.startswith("> "):
             # Blockquote — add as indented paragraph
             p = doc.add_paragraph(line[2:])

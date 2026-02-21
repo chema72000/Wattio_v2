@@ -7,6 +7,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+_SIMULATION_LABELS: dict[str, str] = {
+    "ltspice_run": "Simulation",
+    "ltspice_sweep": "Parameter sweep",
+    "ltspice_plot": "Waveform plot",
+    "ltspice_edit": "Schematic edit",
+}
+
 
 class DiaryWriter:
     """Appends entries to today's diary file."""
@@ -71,6 +78,31 @@ class DiaryWriter:
             for line in content.splitlines():
                 f.write(f"> {line}\n")
             f.write("> ```\n\n")
+
+    def log_simulation(
+        self,
+        tool_name: str,
+        schematic: str,
+        summary: str,
+        params: dict[str, str] | None = None,
+        traces: list[str] | None = None,
+        plot_path: str | None = None,
+    ) -> None:
+        """Write a structured simulation entry after the raw tool result."""
+        self._ensure_session_header()
+        label = _SIMULATION_LABELS.get(tool_name, "Simulation")
+        with open(self._file, "a", encoding="utf-8") as f:
+            f.write(f"#### {self._timestamp()} \u2014 {label}\n")
+            f.write(f"**Schematic:** `{schematic}`\n\n")
+            if params:
+                param_str = ", ".join(f"`{k}={v}`" for k, v in params.items())
+                f.write(f"**Parameters:** {param_str}\n\n")
+            if traces:
+                traces_str = ", ".join(f"`{t}`" for t in traces)
+                f.write(f"**Traces:** {traces_str}\n\n")
+            f.write(f"{summary}\n\n")
+            if plot_path:
+                f.write(f"![{label} plot]({plot_path})\n\n")
 
     def close_session(self) -> None:
         if not self._started:

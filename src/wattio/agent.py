@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -17,6 +18,66 @@ console = Console()
 SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
 MAX_TOOL_ROUNDS = 20  # Safety limit on consecutive tool calls
+
+_LTSPICE_TOOLS = {"ltspice_run", "ltspice_sweep", "ltspice_plot", "ltspice_edit"}
+
+_PLOT_SAVED_RE = re.compile(r"\*\*Plot saved:\*\*\s*`([^`]+)`")
+
+
+def _extract_simulation_info(
+    tool_name: str, arguments: dict, content: str
+) -> dict:
+    """Extract simulation metadata from tool arguments and result content."""
+    info: dict = {}
+
+    # Schematic path
+    info["schematic"] = arguments.get("schematic_path") or arguments.get("raw_path", "")
+
+    # Summary — first line of the result content
+    info["summary"] = content.splitlines()[0] if content else ""
+
+    # Parameters
+    params: dict[str, str] | None = None
+    if tool_name == "ltspice_run":
+        pc = arguments.get("param_changes")
+        if pc:
+            params = {k: str(v) for k, v in pc.items()}
+    elif tool_name == "ltspice_sweep":
+        sp = arguments.get("sweep_param", "")
+        if sp:
+            params = {
+                sp: f"{arguments.get('start')} → {arguments.get('stop')} step {arguments.get('step')}"
+            }
+    elif tool_name == "ltspice_edit":
+        action = arguments.get("action", "")
+        parts: dict[str, str] = {}
+        if arguments.get("component"):
+            parts["component"] = arguments["component"]
+        if arguments.get("value"):
+            parts["value"] = arguments["value"]
+        if arguments.get("model"):
+            parts["model"] = arguments["model"]
+        if arguments.get("directive"):
+            parts["directive"] = arguments["directive"]
+        if parts:
+            params = parts
+        # Summarise with the action name
+        info["summary"] = f"**Action:** `{action}` — {info['summary']}"
+    info["params"] = params
+
+    # Traces
+    traces = arguments.get("traces")
+    if not traces and tool_name == "ltspice_sweep":
+        mt = arguments.get("measure_trace")
+        if mt:
+            traces = [mt]
+    info["traces"] = traces
+
+    # Plot path
+    m = _PLOT_SAVED_RE.search(content)
+    info["plot_path"] = m.group(1) if m else None
+
+    return info
 
 
 class Agent:
@@ -144,6 +205,23 @@ class Agent:
 
                 if self._diary_writer:
                     self._diary_writer.log_tool_result(result.content, result.is_error)
+
+                if (
+                    self._diary_writer
+                    and not result.is_error
+                    and tc.name in _LTSPICE_TOOLS
+                ):
+                    info = _extract_simulation_info(
+                        tc.name, tc.arguments, result.content
+                    )
+                    self._diary_writer.log_simulation(
+                        tool_name=tc.name,
+                        schematic=info["schematic"],
+                        summary=info["summary"],
+                        params=info["params"],
+                        traces=info["traces"],
+                        plot_path=info["plot_path"],
+                    )
 
                 if result.is_error:
                     console.print(f"  [red]Error:[/] {result.content}")
