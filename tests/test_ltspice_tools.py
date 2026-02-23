@@ -783,3 +783,64 @@ def _fake_pyltspice(mock_editor: Any) -> Any:
     mod = ModuleType("PyLTSpice")
     mod.AscEditor = mock_editor  # type: ignore[attr-defined]
     return mod
+
+
+# ── Additional edge-case tests ─────────────────────────────────────
+
+
+class TestEngEdgeCases:
+    def test_femto_scale(self) -> None:
+        result = eng(5e-15, "F")
+        assert "5" in result
+        assert "f" in result
+        assert "F" in result
+
+    def test_giga_scale(self) -> None:
+        result = eng(2.5e9, "Hz")
+        assert "2.5" in result
+        assert "GHz" in result
+
+
+class TestComputeMeasurementsEdgeCases:
+    def test_measure_start_beyond_data(self) -> None:
+        """When measure_start is beyond all data, fallback to all data."""
+        import numpy as np
+
+        t = np.array([0.0, 0.1, 0.2, 0.3])
+        d = np.array([1.0, 2.0, 3.0, 4.0])
+        m = compute_measurements(t, d, measure_start=999.0)
+        # Should fall back to using all data
+        assert m["min"] == pytest.approx(1.0)
+        assert m["max"] == pytest.approx(4.0)
+        assert m["final"] == pytest.approx(4.0)
+
+
+class TestIsInSimWorkdir:
+    def test_inside(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_helpers import is_in_sim_workdir
+
+        sim_dir = ensure_sim_workdir(tmp_project)
+        asc = sim_dir / "test.asc"
+        asc.write_text("Version 4")
+        assert is_in_sim_workdir(asc, tmp_project) is True
+
+    def test_outside(self, tmp_project: Path) -> None:
+        from wattio.tools.ltspice_helpers import is_in_sim_workdir
+
+        asc = tmp_project / "01 - LTspice" / "flyback" / "test.asc"
+        assert is_in_sim_workdir(asc, tmp_project) is False
+
+
+class TestExtractParametersEdgeCases:
+    def test_comments_mixed_in(self) -> None:
+        """Lines that are not .param directives are ignored."""
+        content = (
+            "* This is a comment\n"
+            ".param R_load 10\n"
+            "; Another comment line\n"
+            "TEXT 100 200 Left 2 !.param fsw=100k\n"
+        )
+        params = extract_parameters_from_asc(content)
+        assert params["R_load"] == "10"
+        assert params["fsw"] == "100k"
+        assert len(params) == 2

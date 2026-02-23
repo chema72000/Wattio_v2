@@ -61,3 +61,33 @@ class TestToolRegistry:
             assert schema["type"] == "function"
             assert "name" in schema["function"]
             assert "description" in schema["function"]
+
+
+class TestFileReaderEdgeCases:
+    @pytest.mark.asyncio
+    async def test_file_too_large(self, tmp_project: Path, file_reader: FileReaderTool) -> None:
+        """Files over 512KB should be rejected."""
+        big_file = tmp_project / "big.txt"
+        big_file.write_bytes(b"x" * (512_001))
+        result = await file_reader.execute(tmp_project, file_path="big.txt")
+        assert result.is_error
+        assert "too large" in result.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_empty_file_path(self, tmp_project: Path, file_reader: FileReaderTool) -> None:
+        result = await file_reader.execute(tmp_project, file_path="")
+        assert result.is_error
+        assert "required" in result.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_symlink_outside_project(self, tmp_project: Path, file_reader: FileReaderTool) -> None:
+        """Symlink resolving outside project should be blocked."""
+        import os
+        # Create a symlink pointing to /tmp (outside project)
+        link = tmp_project / "outside.txt"
+        try:
+            os.symlink("/etc/hosts", str(link))
+        except OSError:
+            pytest.skip("Cannot create symlinks on this platform")
+        result = await file_reader.execute(tmp_project, file_path="outside.txt")
+        assert result.is_error
