@@ -178,6 +178,8 @@ def _extract_from_diary(
                 "check the diary", "diary entry", "feel free",
                 "let me know", "i've recorded", "i have recorded",
                 "a decision was made", "additionally, there",
+                "not currently installed", "not installed",
+                "unable to perform", "error:", "traceback",
             ]
             if (
                 len(stripped) > 20
