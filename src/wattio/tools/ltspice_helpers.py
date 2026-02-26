@@ -127,6 +127,10 @@ def create_working_copy(
     stem = original.stem + suffix
     dest = work_dir / (stem + ".asc")
 
+    # If the source is already the working copy, nothing to do.
+    if dest.resolve() == original.resolve():
+        return dest
+
     # On Windows the destination may still be locked by a previous LTspice
     # process.  Try to remove it first; if that fails, wait briefly and retry.
     for attempt in range(3):
