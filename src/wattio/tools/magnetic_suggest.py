@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -98,11 +99,16 @@ class MagneticSuggestTool(BaseTool):
                 "--topology", topology,
             ]
 
+        # Force UTF-8 so rich doesn't choke on emoji via the legacy
+        # Windows console renderer (cp1252 can't encode them).
+        env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=env,
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
         except asyncio.TimeoutError:

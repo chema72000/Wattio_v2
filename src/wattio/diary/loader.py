@@ -74,6 +74,9 @@ def _extract_from_diary(
     current_body: list[str] = []
     last_user_request: str | None = None
     found_wattio_response = False
+    # Collect simulation entries (#### headers from log_simulation)
+    in_simulation = False
+    sim_lines: list[str] = []
 
     for line in lines:
         # Skip blockquotes and JSON fragments
@@ -84,6 +87,26 @@ def _extract_from_diary(
             stripped.startswith('"') and (stripped.endswith(',') or stripped.endswith('"'))
         ):
             continue
+
+        # Detect simulation entries (#### headers from log_simulation)
+        if line.startswith("#### "):
+            _flush_simulation(sim_lines, date_str, work_summaries)
+            in_simulation = True
+            sim_lines = [stripped]
+            continue
+
+        if in_simulation:
+            # End simulation block on any ### / ## / # header or blank line
+            if line.startswith("### ") or line.startswith("## ") or line.startswith("# "):
+                _flush_simulation(sim_lines, date_str, work_summaries)
+                in_simulation = False
+                # Fall through to process this header below
+            elif stripped:
+                sim_lines.append(stripped)
+                continue
+            else:
+                # blank line — keep collecting, simulation may have multi-paragraph content
+                continue
 
         # Detect category headers
         if "DECISION" in line and line.startswith("### "):
@@ -146,6 +169,7 @@ def _extract_from_diary(
         elif not found_wattio_response and last_user_request is None and stripped:
             # First non-empty line after a User header = the user's request
             last_user_request = stripped
+            work_summaries.append(f"({date_str}) User asked: {stripped}")
         elif found_wattio_response and stripped:
             # Capture meaningful Wattio responses as work summaries,
             # but skip filler and lines that just repeat decisions/todos
@@ -163,8 +187,23 @@ def _extract_from_diary(
                 found_wattio_response = False  # Only capture first meaningful line
 
     # Flush remaining
+    _flush_simulation(sim_lines, date_str, work_summaries)
     _flush_category(current_category, current_body, date_str,
                     decisions, todos, recommendations, notes)
+
+
+def _flush_simulation(
+    sim_lines: list[str],
+    date_str: str,
+    work_summaries: list[str],
+) -> None:
+    """Collapse a #### simulation block into a single work-summary line."""
+    if not sim_lines:
+        return
+    # Join all lines: header + parameters + summary
+    text = " | ".join(sim_lines)
+    work_summaries.append(f"({date_str}) {text}")
+    sim_lines.clear()
 
 
 def _flush_category(

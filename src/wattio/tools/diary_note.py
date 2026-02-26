@@ -33,8 +33,15 @@ class DiaryNoteTool(BaseTool):
         "required": ["note"],
     }
 
+    @staticmethod
+    def _sanitize(text: str) -> str:
+        """Replace surrogate characters that can't be encoded to UTF-8."""
+        # Round-trip through UTF-16 to merge surrogate pairs into proper codepoints;
+        # lone surrogates are replaced with U+FFFD.
+        return text.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+
     async def execute(self, project_dir: Path, **kwargs: Any) -> ToolResult:
-        note = kwargs.get("note", "")
+        note = self._sanitize(kwargs.get("note", ""))
         category = kwargs.get("category", "note")
 
         if not note:

@@ -10,6 +10,7 @@ import os
 import platform
 import re
 import shutil
+import time
 from pathlib import Path
 
 # ── Platform & exe discovery ────────────────────────────────────────
@@ -125,7 +126,23 @@ def create_working_copy(
     """
     stem = original.stem + suffix
     dest = work_dir / (stem + ".asc")
-    shutil.copy2(original, dest)
+
+    # On Windows the destination may still be locked by a previous LTspice
+    # process.  Try to remove it first; if that fails, wait briefly and retry.
+    for attempt in range(3):
+        try:
+            if dest.exists():
+                dest.unlink()
+            shutil.copy2(original, dest)
+            break
+        except PermissionError:
+            if attempt < 2:
+                time.sleep(0.5)
+            else:
+                raise PermissionError(
+                    f"Cannot write to {dest} — the file is locked by another "
+                    "process (LTspice still running?). Close LTspice and retry."
+                )
 
     # Also copy supporting files from the same directory
     for ext in (".asy", ".sub", ".lib", ".inc"):

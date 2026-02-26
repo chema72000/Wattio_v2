@@ -54,7 +54,7 @@ class LTspicePlotTool(BaseTool):
         traces_requested = kwargs.get("traces", [])
         time_range = kwargs.get("time_range")
         title = kwargs.get("title", "")
-        step_idx = kwargs.get("step")
+        step_idx = kwargs.get("step", 0)
 
         if not raw_path_str:
             return ToolResult(
