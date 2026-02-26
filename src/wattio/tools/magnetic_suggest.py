@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -80,8 +81,12 @@ class MagneticSuggestTool(BaseTool):
                 is_error=True,
             )
 
-        # Find magnetic-suggest: prefer the installed binary, fall back to python -m
-        binary = shutil.which("magnetic-suggest")
+        # Find magnetic-suggest: check the running venv first, then PATH
+        venv_scripts = Path(sys.executable).parent
+        binary = shutil.which("magnetic-suggest", path=str(venv_scripts))
+        if not binary:
+            binary = shutil.which("magnetic-suggest")
+
         if binary:
             cmd = [
                 binary,
@@ -91,8 +96,9 @@ class MagneticSuggestTool(BaseTool):
                 "--topology", topology,
             ]
         else:
+            # Fall back to running as a module with the current interpreter
             cmd = [
-                "python3", "-m", "magnetic_suggest.cli",
+                sys.executable, "-m", "magnetic_suggest.cli",
                 str(full_path),
                 "--margin", str(margin),
                 "--limit", str(limit),
