@@ -19,7 +19,7 @@ SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
 MAX_TOOL_ROUNDS = 20  # Safety limit on consecutive tool calls
 
-_LTSPICE_TOOLS = {"ltspice_run", "ltspice_sweep", "ltspice_plot", "ltspice_edit"}
+_LTSPICE_TOOLS = {"ltspice_run", "ltspice_sweep", "ltspice_plot", "ltspice_edit", "ltspice_export_csv"}
 
 _PLOT_SAVED_RE = re.compile(r"\*\*Plot saved:\*\*\s*`([^`]+)`")
 
