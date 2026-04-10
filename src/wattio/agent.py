@@ -9,7 +9,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.markdown import Markdown
 
-from wattio.models import LLMResponse, Message, ToolCall, ToolResult, WattioConfig
+from wattio.models import LLMResponse, Message, Role, ToolCall, ToolResult, WattioConfig
 from wattio.llm.router import LLMRouter
 from wattio.tools.registry import ToolRegistry
 
@@ -18,6 +18,7 @@ console = Console()
 SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
 MAX_TOOL_ROUNDS = 20  # Safety limit on consecutive tool calls
+_TOOL_RESULT_TRUNCATE_LEN = 300  # Max chars for old tool results sent to LLM
 
 _LTSPICE_TOOLS = {"ltspice_run", "ltspice_sweep", "ltspice_plot", "ltspice_edit", "ltspice_export_csv"}
 
@@ -128,6 +129,52 @@ class Agent:
     def clear_history(self) -> None:
         self._history.clear()
 
+    def _prepare_messages(self, current_round_start: int) -> list[Message]:
+        """Build message list for LLM, compressing old tool results.
+
+        Tool results from previous rounds are compressed to save tokens:
+        - Image data (base64) is stripped from old results (already analyzed)
+        - Large text results are truncated (unless marked keep_full)
+        Only tool results in the current round are sent in full.
+        """
+        messages = [self._system_message]
+        for i, msg in enumerate(self._history):
+            if not (msg.role == Role.TOOL and msg.tool_result and i < current_round_start):
+                messages.append(msg)
+                continue
+
+            tr = msg.tool_result
+            if tr.is_error:
+                messages.append(msg)
+                continue
+
+            # Strip image data from old results (LLM already saw them)
+            if tr.image_base64:
+                compressed = ToolResult(
+                    tool_call_id=tr.tool_call_id,
+                    content=tr.content,  # keeps "Image loaded: path (N bytes)"
+                    is_error=False,
+                )
+                messages.append(Message.tool(compressed))
+                continue
+
+            # Truncate large text results (unless marked keep_full)
+            if not tr.keep_full and len(tr.content) > _TOOL_RESULT_TRUNCATE_LEN:
+                truncated_content = (
+                    tr.content[:_TOOL_RESULT_TRUNCATE_LEN]
+                    + f"\n\n[... truncated, originally {len(tr.content)} chars]"
+                )
+                compressed = ToolResult(
+                    tool_call_id=tr.tool_call_id,
+                    content=truncated_content,
+                    is_error=False,
+                )
+                messages.append(Message.tool(compressed))
+                continue
+
+            messages.append(msg)
+        return messages
+
     async def shutdown(self) -> None:
         if self._diary_writer:
             self._diary_writer.close_session()
@@ -142,37 +189,44 @@ class Agent:
             self._diary_writer.log_user(text)
 
         # Agent loop: LLM may request tool calls, then we feed results back
+        current_round_start = len(self._history)
         for _ in range(MAX_TOOL_ROUNDS):
-            messages = [self._system_message] + self._history
+            messages = self._prepare_messages(current_round_start)
             tool_schemas = self._registry.to_openai_schemas() or None
 
             try:
-                response = await self._router.chat(messages, tools=tool_schemas)
+                response = await self._router.chat_stream(
+                    messages,
+                    tools=tool_schemas,
+                    on_text=lambda chunk: console.print(chunk, end=""),
+                )
             except Exception as e:
                 console.print(f"\n  [red]LLM error:[/] {e}\n")
                 return
 
             # If no tool calls, we have a final text response
             if not response.tool_calls:
-                self._handle_text_response(response)
+                self._handle_streamed_response(response)
                 return
 
-            # Process tool calls
+            # Process tool calls (text was already streamed if any)
             assistant_msg = Message.assistant(
                 text=response.content, tool_calls=response.tool_calls
             )
             self._history.append(assistant_msg)
 
             if response.content:
+                # Text was already streamed, just add a newline
                 console.print()
-                console.print(Markdown(response.content))
 
             await self._execute_tool_calls(response.tool_calls)
+            # Tool results just added are "current round" for the next LLM call
+            current_round_start = len(self._history) - len(response.tool_calls)
         else:
             console.print("\n  [yellow]Reached maximum tool call rounds.[/]\n")
 
     def _handle_text_response(self, response: LLMResponse) -> None:
-        """Display and log a final text response."""
+        """Display and log a final text response (non-streaming fallback)."""
         text = response.content or ""
         self._history.append(Message.assistant(text))
 
@@ -180,6 +234,17 @@ class Agent:
             console.print()
             console.print(Markdown(text))
             console.print()
+
+        if self._diary_writer:
+            self._diary_writer.log_assistant(text)
+
+    def _handle_streamed_response(self, response: LLMResponse) -> None:
+        """Log a response that was already streamed to the console."""
+        text = response.content or ""
+        self._history.append(Message.assistant(text))
+
+        # Text was already printed via on_text callback; just add trailing newline
+        console.print("\n")
 
         if self._diary_writer:
             self._diary_writer.log_assistant(text)

@@ -27,6 +27,9 @@ class ToolResult(BaseModel):
     tool_call_id: str
     content: str
     is_error: bool = False
+    image_base64: str | None = None
+    image_media_type: str | None = None  # e.g. "image/png", "image/jpeg"
+    keep_full: bool = False  # If True, never truncate in history compression
 
 
 class Message(BaseModel):
@@ -69,8 +72,8 @@ class LLMResponse(BaseModel):
 # ── Configuration ────────────────────────────────────────────────────
 
 class LLMConfig(BaseModel):
-    provider: str = "openai"
-    model: str = "gpt-4o"
+    provider: str = "anthropic"
+    model: str = "claude-sonnet-4-5-20250929"
     temperature: float = 0.2
     fallback_provider: str | None = None
     fallback_model: str | None = None

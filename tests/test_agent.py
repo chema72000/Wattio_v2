@@ -40,13 +40,13 @@ class TestAgent:
         """Agent returns LLM text response to user."""
         with patch("wattio.agent.LLMRouter") as MockRouter:
             mock_router = AsyncMock()
-            mock_router.chat.return_value = _make_text_response("Hello engineer!")
+            mock_router.chat_stream.return_value = _make_text_response("Hello engineer!")
             MockRouter.return_value = mock_router
 
             agent = Agent(config=config, project_dir=tmp_project)
             await agent.handle_user_input("Hi")
 
-            mock_router.chat.assert_called_once()
+            mock_router.chat_stream.assert_called_once()
             assert len(agent._history) == 2  # user + assistant
             assert agent._history[1].content == "Hello engineer!"
 
@@ -59,7 +59,7 @@ class TestAgent:
             mock_router = AsyncMock()
             # First call: LLM requests file_reader tool
             # Second call: LLM gives final response
-            mock_router.chat.side_effect = [
+            mock_router.chat_stream.side_effect = [
                 _make_tool_call_response(
                     "file_reader",
                     {"file_path": "01 - LTspice/flyback/test.asc"},
@@ -71,7 +71,7 @@ class TestAgent:
             agent = Agent(config=config, project_dir=tmp_project)
             await agent.handle_user_input("Read my schematic")
 
-            assert mock_router.chat.call_count == 2
+            assert mock_router.chat_stream.call_count == 2
             # History: user, assistant(tool_call), tool_result, assistant(text)
             assert len(agent._history) == 4
 
@@ -82,7 +82,7 @@ class TestAgent:
         """Clearing history resets conversation."""
         with patch("wattio.agent.LLMRouter") as MockRouter:
             mock_router = AsyncMock()
-            mock_router.chat.return_value = _make_text_response("Hi")
+            mock_router.chat_stream.return_value = _make_text_response("Hi")
             MockRouter.return_value = mock_router
 
             agent = Agent(config=config, project_dir=tmp_project)
@@ -99,7 +99,7 @@ class TestAgent:
         """Agent handles unknown tool call gracefully."""
         with patch("wattio.agent.LLMRouter") as MockRouter:
             mock_router = AsyncMock()
-            mock_router.chat.side_effect = [
+            mock_router.chat_stream.side_effect = [
                 _make_tool_call_response("nonexistent_tool", {}),
                 _make_text_response("Sorry, that tool is not available."),
             ]
@@ -123,7 +123,7 @@ class TestAgent:
         with patch("wattio.agent.LLMRouter") as MockRouter:
             mock_router = AsyncMock()
             # Always return a tool call — never give a final text response
-            mock_router.chat.return_value = _make_tool_call_response(
+            mock_router.chat_stream.return_value = _make_tool_call_response(
                 "file_reader", {"file_path": "01 - LTspice/flyback/test.asc"}
             )
             MockRouter.return_value = mock_router
@@ -131,7 +131,7 @@ class TestAgent:
             agent = Agent(config=config, project_dir=tmp_project)
             await agent.handle_user_input("Loop forever")
 
-            assert mock_router.chat.call_count == MAX_TOOL_ROUNDS
+            assert mock_router.chat_stream.call_count == MAX_TOOL_ROUNDS
             await agent.shutdown()
 
     @pytest.mark.asyncio
@@ -139,7 +139,7 @@ class TestAgent:
         """LLM error is caught and printed, no crash."""
         with patch("wattio.agent.LLMRouter") as MockRouter:
             mock_router = AsyncMock()
-            mock_router.chat.side_effect = RuntimeError("API timeout")
+            mock_router.chat_stream.side_effect = RuntimeError("API timeout")
             MockRouter.return_value = mock_router
 
             agent = Agent(config=config, project_dir=tmp_project)
@@ -162,7 +162,7 @@ class TestAgent:
                 ],
                 usage=TokenUsage(),
             )
-            mock_router.chat.side_effect = [
+            mock_router.chat_stream.side_effect = [
                 multi_tool_response,
                 _make_text_response("Done reading both."),
             ]
@@ -183,7 +183,7 @@ class TestAgent:
         config = WattioConfig(diary=DiaryConfig(enabled=False))
         with patch("wattio.agent.LLMRouter") as MockRouter:
             mock_router = AsyncMock()
-            mock_router.chat.return_value = _make_text_response("Hi")
+            mock_router.chat_stream.return_value = _make_text_response("Hi")
             MockRouter.return_value = mock_router
 
             agent = Agent(config=config, project_dir=tmp_project)

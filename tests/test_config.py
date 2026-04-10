@@ -8,8 +8,8 @@ from wattio.config import ensure_wattio_dir, load_config
 def test_load_default_config() -> None:
     """Loading config without any files returns defaults."""
     config = load_config()
-    assert config.llm.provider == "openai"
-    assert config.llm.model == "gpt-4o"
+    assert config.llm.provider == "anthropic"
+    assert config.llm.model == "claude-sonnet-4-5-20250929"
     assert config.diary.enabled is True
 
 

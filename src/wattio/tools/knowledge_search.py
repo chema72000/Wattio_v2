@@ -15,10 +15,11 @@ class KnowledgeSearchTool(BaseTool):
 
     name = "knowledge_search"
     description = (
-        "Search the engineer's curated design notes and knowledge base. "
-        "Use this when answering technical questions about derating rules, "
-        "preferred vendors, design guidelines, or project-specific conventions. "
-        "Returns relevant excerpts from the engineer's markdown notes."
+        "Search curated design guides and knowledge base. "
+        "MANDATORY for custom magnetic design — always call this FIRST when the engineer "
+        "asks about Frenetic, core selection, winding design, or any custom transformer/inductor design. "
+        "Also use for derating rules, design guidelines, or project-specific conventions. "
+        "Returns complete step-by-step workflows and reference data."
     )
     parameters = {
         "type": "object",
@@ -49,14 +50,23 @@ class KnowledgeSearchTool(BaseTool):
                         "but clearly state: 'From general knowledge (not from your curated notes).'",
             )
 
-        output_parts = []
-        for r in results:
-            snippet = r.content[:1500] if len(r.content) > 1500 else r.content
-            output_parts.append(
-                f"## {r.title} (from {r.file}, relevance: {r.score:.0%})\n\n{snippet}"
+        # Return the top match in full, and list other matches as titles
+        # so the LLM can query them later (keeps context manageable)
+        top = results[0]
+        output = f"## {top.title} (from {top.file}, relevance: {top.score:.0%})\n\n{top.content}"
+
+        if len(results) > 1:
+            other_titles = "\n".join(
+                f"- **{r.title}** ({r.file}, relevance: {r.score:.0%})"
+                for r in results[1:]
+            )
+            output += (
+                f"\n\n---\n\n**Other matching topics** (use `knowledge_search` "
+                f"with a more specific query to retrieve):\n{other_titles}"
             )
 
         return ToolResult(
             tool_call_id="",
-            content="\n\n---\n\n".join(output_parts),
+            content=output,
+            keep_full=True,  # Knowledge guides must stay in full context
         )

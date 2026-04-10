@@ -102,8 +102,8 @@ class TestTokenUsage:
 class TestWattioConfig:
     def test_defaults(self) -> None:
         config = WattioConfig()
-        assert config.llm.provider == "openai"
-        assert config.llm.model == "gpt-4o"
+        assert config.llm.provider == "anthropic"
+        assert config.llm.model == "claude-sonnet-4-5-20250929"
         assert config.llm.temperature == 0.2
         assert config.diary.enabled is True
         assert config.diary.auto_export_docx is False

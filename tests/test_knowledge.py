@@ -120,12 +120,25 @@ class TestKnowledgeSearchTool:
         assert "required" in result.content.lower()
 
     @pytest.mark.asyncio
-    async def test_long_content_truncated(self, tmp_project: Path, ks_tool: KnowledgeSearchTool) -> None:
-        """Content longer than 1500 chars is truncated in tool output."""
+    async def test_long_content_returned(self, tmp_project: Path, ks_tool: KnowledgeSearchTool) -> None:
+        """Long content is returned in full (curated guides must not be truncated)."""
         kb_dir = tmp_project / "wattio" / "knowledge" / "curated"
         long_content = "# Long Doc\n" + "word " * 500  # ~2500 chars
         (kb_dir / "long.md").write_text(long_content)
         result = await ks_tool.execute(tmp_project, query="word")
         assert not result.is_error
-        # The raw content is >1500 chars but the snippet should be truncated
-        assert len(result.content) < len(long_content)
+        assert "word" in result.content
+        assert "Long Doc" in result.content
+
+    @pytest.mark.asyncio
+    async def test_multiple_results_only_top_full(self, tmp_project: Path, ks_tool: KnowledgeSearchTool) -> None:
+        """Only the top result is returned in full; others are listed as titles."""
+        kb_dir = tmp_project / "wattio" / "knowledge" / "curated"
+        (kb_dir / "guide1.md").write_text("# Main Guide\ncore selection steps here")
+        (kb_dir / "guide2.md").write_text("# Thermal Data\ncore thermal limits here")
+        result = await ks_tool.execute(tmp_project, query="core")
+        assert not result.is_error
+        # Top result should have full content
+        assert "steps here" in result.content or "limits here" in result.content
+        # Other result should appear only as a title reference
+        assert "Other matching topics" in result.content

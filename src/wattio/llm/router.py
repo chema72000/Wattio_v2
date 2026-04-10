@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 from rich.console import Console
 
 from wattio.llm.base import LLMClient
@@ -54,6 +56,22 @@ class LLMRouter:
             if self._fallback:
                 console.print(f"  [yellow]Primary LLM failed ({e}), trying fallback...[/]")
                 return await self._fallback.chat(messages, tools, temp)
+            raise
+
+    async def chat_stream(
+        self,
+        messages: list[Message],
+        tools: list[dict] | None = None,
+        temperature: float | None = None,
+        on_text: Callable[[str], None] | None = None,
+    ) -> LLMResponse:
+        temp = temperature if temperature is not None else self.config.llm.temperature
+        try:
+            return await self._primary.chat_stream(messages, tools, temp, on_text)
+        except Exception as e:
+            if self._fallback:
+                console.print(f"  [yellow]Primary LLM failed ({e}), trying fallback...[/]")
+                return await self._fallback.chat_stream(messages, tools, temp, on_text)
             raise
 
     async def close(self) -> None:
