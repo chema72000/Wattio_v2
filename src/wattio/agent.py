@@ -108,7 +108,7 @@ class Agent:
             diary_context = ""
 
         # Build system prompt
-        template = SYSTEM_PROMPT_PATH.read_text()
+        template = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
         system_text = template.format(
             project_dir=project_dir.name,
             date=date.today().isoformat(),

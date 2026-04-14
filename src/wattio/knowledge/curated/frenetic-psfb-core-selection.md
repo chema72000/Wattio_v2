@@ -109,17 +109,11 @@ Call `core_thermal_search` with:
 
 The tool searches the thermal dissipation database and returns the **3 smallest cores** (one each from E, PQ, ETD, or RM families) whose total dissipation capacity is at least 90% of the expected total losses.
 
-Present the results to the engineer in a **summary table** that includes a **Power Density** column. Calculate Power Density as:
+**⚠️ CRITICAL: Present the EXACT core names and data returned by the tool. NEVER create your own summary table with different cores. NEVER substitute cores from memory or general knowledge. Copy the core names, volumes, and capacities directly from the tool output.**
+
+After presenting the tool output, add a **Power Density** column for each core. Calculate as:
 
 **Power Density (kW/L) = Converter Output Power (W) / Core Effective Volume (mm³) × 1 000 000**
-
-Example summary table:
-
-| Tier | Core | Family | Volume (mm³) | Best capacity (W) | Power Density (kW/L) | Strategy |
-|------|------|--------|--------------|--------------------|----------------------|----------|
-| aggressive | PQ26/25 | PQ | 5 410 | 5.8 | 185 | balanced |
-| middle | E30/15/7 | E | 7 580 | 7.1 | 132 | winding-heavy |
-| conservative | ETD34/17/11 | ETD | 11 200 | 9.4 | 89 | balanced |
 
 Power Density tells the engineer how aggressively each core is being used — higher values mean a smaller core for the same power, which is harder to cool but more compact.
 
@@ -269,6 +263,12 @@ There are two common causes for "no solution" — the agent MUST diagnose which 
 **Phase 2 — Winding: Check total losses**
 
 7. **Generate a winding:** Go to Winding tab → set the turns → click **"SUGGEST WIRE"**. Note the winding losses, window occupation %, and whether interleaving is applied.
+
+   **Handle "No solution with reasonable current density" in Suggest Wire:**
+
+   If Frenetic says there is no winding solution with reasonable current density, it means the core's window area is too small to fit the required copper for the RMS currents at this turns count. **Increasing turns does NOT fix this** — current density depends on RMS current and wire cross-section, not on the number of turns. More turns would actually make it worse (more turns to fit in the same window).
+
+   **Action:** The core is too small. Put this core on hold and **move to the next (larger) core** from the pre-selection list. Do NOT attempt to fix this by adjusting turns or wire parameters — the fundamental constraint is window area vs. current.
 
 8. **Review winding before iterating — quick wins FIRST.** Before changing turns, check if the winding itself can be improved at the current turns count. Apply these checks in order:
 

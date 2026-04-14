@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "wattio"
+name = "wattio2"
 version = "0.1.0"
 description = "AI agent for power electronics engineers"
 requires-python = ">=3.10"
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [project.scripts]
-wattio = "wattio.cli:main"
+wattio2 = "wattio.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/wattio"]
