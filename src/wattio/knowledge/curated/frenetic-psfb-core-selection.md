@@ -288,6 +288,8 @@ There are two common causes for "no solution" — the agent MUST diagnose which 
 
    **Rule:** If the arrangement already maximizes alternation for the given number of layers, it IS full interleaving — do NOT ask the user to change it. Only request interleaving changes when layers of the same winding are grouped together unnecessarily (e.g., P-P-S instead of P-S-P).
 
+   **Why interleaving matters (physics):** Proximity losses grow quadratically with the number of layers of the same winding stacked together — the factor is (4M²−1)/12, where M is the effective number of same-winding layers between interleaving breaks. Going from 1 → 2 stacked layers increases proximity losses by ~5×; 1 → 3 by ~12×. Interleaving (P-S-P-S) resets the MMF build-up so each section behaves as M = 1. This same quadratic scaling applies to **both round/litz and foil** windings — the gain from interleaving is identical for both.
+
    If interleaving is NOT applied:
    - Tell the user: **"Customize the position of the layers to apply interleaving (alternate primary and secondary layers) to reduce proximity losses."**
    - Specify the target arrangement from the table above.
@@ -301,7 +303,30 @@ There are two common causes for "no solution" — the agent MUST diagnose which 
    - Ask the user to click **"SUGGEST WIRE"** again (or manually adjust strands) and report the new winding losses and window occupation.
    - Repeat until window occupation reaches ~75–80% or winding losses stop improving.
 
-   **Only after both checks are done** (interleaving applied, window occupation near 80%), proceed to the design review.
+   **Check C — Conductor type (litz vs foil):**
+
+   Frenetic can generate either litz-wire or foil windings. The right choice depends on the winding arrangement and whether the core is gapped.
+
+   **Prefer FOIL when all of the following hold:**
+   - The winding is **fully enclosed by the core window** (no portion exposed to free air), so the magnetic field stays parallel to the foil.
+   - The core has **no air gap**, or the air gap is very small and the foil can be placed **far from the gap** (distance-to-gap dwg ≥ 0.25·bF, where bF is the window width).
+   - The foil **fills the window width** (bL ≈ bF). A short foil has reduced effective conductivity by the porosity factor η = NL·bL/bF and loses most of its advantage.
+   - Higher winding capacitance is acceptable for the circuit (foil has more turn-to-turn capacitance than litz).
+
+   When these conditions are met, foil beats litz because the "skin" area is larger for the same copper cross-section, reducing skin losses. Foil also has a higher fill factor and lower cost than litz.
+
+   **Prefer LITZ when:**
+   - The core has a significant air gap (typical for PSFB designs that tune Lmag with a shim). Air-gap fringing creates a field **orthogonal to foil**, which forces current to the foil edges and makes foil losses explode — potentially worse than solid round wire.
+   - The winding is not fully enclosed by magnetic material.
+   - Low winding capacitance is important.
+
+   **Foil-specific warnings to pass to the user:**
+   - If the user selects foil in a gapped design: **"Foil in gapped cores is risky — the air-gap fringing field is orthogonal to the foil and causes current to concentrate at the foil edges, dramatically increasing losses. Keep the foil at least 25% of the window width away from the gap, and use thin foil (thickness < skin depth at fsw). Consider litz instead if the gap is large."**
+   - If the foil does not fill the window width: **"Foil width bL is less than window width bF — this reduces effective conductivity by the porosity factor η = NL·bL/bF. Either widen the foil to fill the window, or expect losses above the ideal foil value."**
+
+   **Practical default for PSFB transformers:** litz wire is usually the safer starting point because most PSFB designs gap the core (shim) for Lmag control. Only recommend foil if the design is un-gapped or the foil can be kept far from the gap.
+
+   **Only after all three checks are done** (interleaving applied, window occupation near 80%, conductor type appropriate), proceed to the design review.
 
 #### Phase 3 — Design Review and Optimization
 
@@ -337,6 +362,7 @@ There are two common causes for "no solution" — the agent MUST diagnose which 
     4. Ask the user to apply the new strand configuration in Frenetic and report: winding losses, skin losses, proximity losses, window occupation %.
     5. **If proximity losses are still high after strand diameter reduction** → the issue is interleaving arrangement, not strand diameter. Ask the user to rearrange layer positions.
     6. **If window occupation exceeds 85%** after increasing strands → the strands don't fit. Try one size larger diameter as a compromise.
+    7. **High-frequency crossover (fsw ≳ 1 MHz):** above a certain frequency the internal proximity losses between strands dominate and litz can become *worse* than a single solid conductor of the same copper area. If fsw > 1 MHz and the losses do not improve after two strand-diameter reductions, litz is past its crossover for this design — suggest evaluating foil (if compatible with Check C) or accepting the current configuration.
 
     **Optimization lever 2 — Fill window to 85% (apply AFTER strand diameter optimization):**
 
