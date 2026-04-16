@@ -9,12 +9,20 @@ For standard catalog cores with no dimensional modifications, use the Frenetic c
 
 - `compute_core(shape, dims)` — IEC 60205 / IEC 63093-13 forward calculation. Takes a dict of dimensions in mm, returns `Ae`, `Le`, `Ve`, `Amin`. Implemented for E, ETD/EER, PQ, RM, EFD.
 - `lookup_vendor_geometry(name, vendor)` — returns the vendor's published Ae/Le/Ve for catalog parts (currently `vendor="ferroxcube"`, PQ family). Use only for unmodified catalog cores.
+- `invert_pq(base, target_Ae=..., target_Le=...)` — inverse problem for PQ cores. Given a base catalog core (e.g. PQ20/20) and target Ae and/or Le, returns the modified `H1, H2` (= `2B, 2D`) that hits the target. Footprint dims (A, C, F) stay fixed by default. Returns an `InverseResult` with `dims`, achieved Ae/Le, signed `relative_error` per target, and a `success` flag (True iff every target is within ±1%).
 
 ## CRITICAL — IEC vs Frenetic divergence (always disclose to the user)
 
 The IEC 60205 closed-form formula and Frenetic's simulator can give **different Ae values for the same custom geometry — up to ±10% in either direction.** Le agreement is much better (within ±3%).
 
 The disagreement is largest for PQ cores when the geometry is far from catalog proportions (very thick or very thin flanges, very short or very tall windows). It is not reducible to a single-variable correction; Frenetic appears to use FEM-style flux integration that captures 3D field effects the IEC closed-form formula misses.
+
+**Tolerance rule for the agent:**
+- **|Frenetic − IEC| ≤ 10% on Ae** → acceptable. Proceed with the design and use Frenetic's numbers as the trusted reference.
+- **|Frenetic − IEC| > 10% on Ae** → escalate. The geometry is in a regime where neither tool is reliable on its own. Recommend one of:
+  1. Try a different base core (one whose proportions are closer to catalog)
+  2. Re-check the dimensions entered in Frenetic for typos
+  3. Report the case to the Frenetic team for verification
 
 **This means**: any custom-geometry estimate the agent provides is a *starting point*, not the design's final number. The user must verify in Frenetic before locking the design.
 

@@ -143,3 +143,72 @@ def test_ferroxcube_override_returns_datasheet_value():
     assert lookup_vendor_geometry("PQ99/99", "ferroxcube") is None
     # Unknown vendor → None
     assert lookup_vendor_geometry("PQ40/40", "epcos") is None
+
+
+# ---------------------------------------------------------------------------
+# Inverse problem
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def pq20_base():
+    from wattio.core_geometry import PQCoreDims
+    wb = openpyxl.load_workbook(DB_PATH, data_only=True)
+    ws = wb["PQ"]
+    header = [c.value for c in ws[1]]
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row[0] and "PQ 20/20" in row[0]:
+            vals = dict(zip(header[1:], row[1:]))
+            break
+    return PQCoreDims(**{k: float(vals[k]) for k in ("A","B","C","D","E","F","G","J","L")})
+
+
+def test_invert_pq_round_trip(pq20_base):
+    """Targets equal the base values → optimiser returns the base dims."""
+    from wattio.core_geometry import compute_pq_core, invert_pq
+
+    g = compute_pq_core(pq20_base)
+    r = invert_pq(pq20_base, target_Ae=g.Ae, target_Le=g.Le)
+
+    assert r.converged
+    assert r.success
+    assert abs(r.dims.B - pq20_base.B) < 1e-3
+    assert abs(r.dims.D - pq20_base.D) < 1e-3
+    assert abs(r.relative_error["Ae"]) < 1e-4
+    assert abs(r.relative_error["Le"]) < 1e-4
+
+
+def test_invert_pq_shrunk_target(pq20_base):
+    """Hit the previously-validated H1=15, H2=10 target (Ae=60.92, Le=36.12)."""
+    from wattio.core_geometry import invert_pq
+
+    r = invert_pq(pq20_base, target_Ae=60.92, target_Le=36.12)
+
+    assert r.converged
+    assert r.success
+    # Should land near H1=15.0, H2=10.0 → B=7.5, D=5.0
+    assert 7.4 < r.dims.B < 7.7
+    assert 4.9 < r.dims.D < 5.2
+
+
+def test_invert_pq_infeasible_reports_failure(pq20_base):
+    """Ask for an Ae the centre limb cannot reach → success=False, best effort returned."""
+    from wattio.core_geometry import invert_pq
+
+    r = invert_pq(pq20_base, target_Ae=200.0, target_Le=80.0)
+
+    assert not r.success
+    assert r.relative_error["Ae"] < -0.5    # significantly under target
+
+
+def test_invert_pq_requires_at_least_one_target(pq20_base):
+    from wattio.core_geometry import invert_pq
+
+    with pytest.raises(ValueError):
+        invert_pq(pq20_base)
+
+
+def test_invert_pq_rejects_unknown_free_dim(pq20_base):
+    from wattio.core_geometry import invert_pq
+
+    with pytest.raises(ValueError):
+        invert_pq(pq20_base, target_Ae=60.0, free=("X",))
