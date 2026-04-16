@@ -212,3 +212,65 @@ def test_invert_pq_rejects_unknown_free_dim(pq20_base):
 
     with pytest.raises(ValueError):
         invert_pq(pq20_base, target_Ae=60.0, free=("X",))
+
+
+def _smallest_core_dims(shape: str):
+    from wattio.core_geometry import (
+        ECoreDims, ETDCoreDims, PQCoreDims, RMCoreDims, EFDCoreDims,
+    )
+    cls = {
+        "E": ECoreDims, "ETD": ETDCoreDims, "PQ": PQCoreDims,
+        "RM": RMCoreDims, "EFD": EFDCoreDims,
+    }[shape]
+    wb = openpyxl.load_workbook(DB_PATH, data_only=True)
+    ws = wb[shape]
+    header = [c.value for c in ws[1]]
+    dim_cols = [h for h in header[1:] if not h.endswith("_published")]
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row[0]:
+            vals = dict(zip(header[1:], row[1:]))
+            return cls(**{k: float(vals[k]) for k in dim_cols})
+    raise RuntimeError(f"no rows for {shape}")
+
+
+@pytest.mark.parametrize("shape", ["E", "ETD", "PQ", "RM", "EFD"])
+def test_invert_core_round_trip(shape):
+    from wattio.core_geometry import compute_core, invert_core
+    from dataclasses import fields
+    base = _smallest_core_dims(shape)
+    base_dict = {f.name: getattr(base, f.name) for f in fields(base)}
+    g = compute_core(shape, base_dict)
+    r = invert_core(shape, base, target_Ae=g.Ae, target_Le=g.Le)
+    assert r.converged
+    assert r.success
+    assert abs(r.relative_error["Ae"]) < 1e-3
+    assert abs(r.relative_error["Le"]) < 1e-3
+
+
+@pytest.mark.parametrize("shape", ["E", "ETD", "PQ", "RM", "EFD"])
+def test_invert_core_shrink_Le(shape):
+    from wattio.core_geometry import compute_core, invert_core
+    from dataclasses import fields
+    base = _smallest_core_dims(shape)
+    base_dict = {f.name: getattr(base, f.name) for f in fields(base)}
+    g = compute_core(shape, base_dict)
+    # Same Ae, 20% shorter Le → smaller B, D
+    r = invert_core(shape, base, target_Ae=g.Ae, target_Le=g.Le * 0.80)
+    assert r.converged
+    assert r.success                    # both targets within 1%
+    assert r.dims.B < base.B            # shrunk
+    assert r.dims.D < base.D
+
+
+def test_invert_core_dispatcher_rejects_unknown():
+    from wattio.core_geometry import invert_core, PQCoreDims
+    base = _smallest_core_dims("PQ")
+    with pytest.raises(ValueError):
+        invert_core("XYZ", base, target_Ae=60.0)
+
+
+def test_invert_pq_with_wrong_dims_class_rejected():
+    from wattio.core_geometry import invert_pq
+    e_base = _smallest_core_dims("E")
+    with pytest.raises(TypeError):
+        invert_pq(e_base, target_Ae=60.0)

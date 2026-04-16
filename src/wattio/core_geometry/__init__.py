@@ -22,7 +22,15 @@ from .shapes import (
     compute_core,
 )
 from .vendor_overrides import lookup_vendor_geometry
-from .inverse import InverseResult, invert_pq
+from .inverse import (
+    InverseResult,
+    invert_pq,
+    invert_e_core,
+    invert_etd_core,
+    invert_rm_core,
+    invert_efd_core,
+    invert_core,
+)
 
 __all__ = [
     "CoreGeometry",
@@ -40,4 +48,9 @@ __all__ = [
     "lookup_vendor_geometry",
     "InverseResult",
     "invert_pq",
+    "invert_e_core",
+    "invert_etd_core",
+    "invert_rm_core",
+    "invert_efd_core",
+    "invert_core",
 ]

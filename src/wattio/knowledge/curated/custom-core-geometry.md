@@ -9,7 +9,7 @@ For standard catalog cores with no dimensional modifications, use the Frenetic c
 
 - `compute_core(shape, dims)` — IEC 60205 / IEC 63093-13 forward calculation. Takes a dict of dimensions in mm, returns `Ae`, `Le`, `Ve`, `Amin`. Implemented for E, ETD/EER, PQ, RM, EFD.
 - `lookup_vendor_geometry(name, vendor)` — returns the vendor's published Ae/Le/Ve for catalog parts (currently `vendor="ferroxcube"`, PQ family). Use only for unmodified catalog cores.
-- `invert_pq(base, target_Ae=..., target_Le=...)` — inverse problem for PQ cores. Given a base catalog core (e.g. PQ20/20) and target Ae and/or Le, returns the modified `H1, H2` (= `2B, 2D`) that hits the target. Footprint dims (A, C, F) stay fixed by default. Returns an `InverseResult` with `dims`, achieved Ae/Le, signed `relative_error` per target, and a `success` flag (True iff every target is within ±1%).
+- `invert_core(shape, base, target_Ae=..., target_Le=...)` — inverse problem (also `invert_pq`, `invert_e_core`, `invert_etd_core`, `invert_rm_core`, `invert_efd_core`). Given a base catalog core and target Ae and/or Le, returns the modified `H1, H2` (= `2B, 2D`) that hits the target. Footprint dims (A, C, F, …) stay fixed by default. Returns an `InverseResult` with `dims`, achieved Ae/Le, signed `relative_error` per target, and a `success` flag (True iff every target is within ±1%). Pass `free=("B", "D", "F")` (or any subset of the shape's dimension names) to vary additional dims.
 
 ## CRITICAL — IEC vs Frenetic divergence (always disclose to the user)
 
