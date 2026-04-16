@@ -246,6 +246,12 @@ There are two common causes for "no solution" — the agent MUST diagnose which 
 
    **Bmax depends on the material:** 200 mT for most ferrite materials, ~220 mT for 3C92.
 
+   **High turns ratio exception (n1/n2 > 10):** When the turns ratio exceeds 10, the secondary often has only 1–2 turns, which forces the primary to a turns count where Bpeak naturally lands above 200 mT. In this case, do NOT immediately increase turns to push Bpeak below 200 mT — that may inflate primary turns unrealistically and explode winding losses. Instead:
+   - Allow Bpeak to operate in the **upper Bmax range** (up to ~280–300 mT for most ferrites, near the material's saturation knee at operating temperature). Check the material datasheet for the actual Bsat at Tmax.
+   - Tell the user: *"With turns ratio > 10, this design naturally pushes Bpeak above the conservative 200 mT limit. Operating closer to the material's saturation knee is acceptable here, but core losses will be higher. Let's discuss cooling — do you have forced convection available? Heatsink mounting? A larger core footprint?"*
+   - Discuss cooling options BEFORE discarding the configuration: forced air, heatsink contact, removing the bobbin (better core-to-winding heat transfer), or a larger core.
+   - Only fall back to "increase turns" if the user has no cooling headroom and the higher core losses cannot be dissipated.
+
    | Condition | Action |
    |-----------|--------|
    | Inductance ≥ Lmag (or within ±10%) AND Bpeak < Bmax AND gap ≤ 2 mm | ✅ **Phase 1 complete** — click **"APPLY"** and proceed to Phase 2 (Winding) |
