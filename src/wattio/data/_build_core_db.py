@@ -68,6 +68,12 @@ SHEETS = {
             ("E 42/21/20",  mid(41.30, 43.00), mid(20.80, 21.20), mid(19.20, 20.00),
                             mid(14.80, 15.40), mid(29.50, 30.90), mid(11.70, 12.20),
                             233.0, 97.0,  22700),
+            # E 42/33/20: A/B/C + Ae/Le/Ve from Ferroxcube 2013 handbook p.281.
+            # D/E/F intentionally None — figure caption could not be parsed
+            # reliably enough; envelope check uses A/B/C only.
+            ("E 42/33/20",  mid(41.30, 43.00), mid(32.40, 32.80), mid(19.20, 20.00),
+                            None, None, None,
+                            236.0, 145.0, 34200),
             ("E 55/28/21",  mid(54.10, 56.20), mid(27.20, 27.80), mid(20.20, 21.00),
                             mid(18.50, 19.30), mid(37.50, 39.00), mid(16.70, 17.20),
                             354.0, 124.0, 43900),
@@ -91,6 +97,21 @@ SHEETS = {
             ("ETD 44/22/15", mid(43.00, 45.00), mid(22.10, 22.50), mid(14.40, 15.20),
                              mid(16.10, 16.90), mid(32.50, 34.10), mid(14.40, 15.20),
                              173.0, 103.0, 17800),
+            # ETD 49/25/16, ETD 54/28/19, ETD 59/31/22:
+            # A/B/C + Ae/Le/Ve from Ferroxcube 2013 handbook pp.557, 560, 563.
+            # D/E/F intentionally None — figure-caption tolerance interpretation
+            # is ambiguous from PDF text extraction; envelope check uses A/B/C
+            # only and is the immediate need (compute_core fails cleanly for
+            # these cores until D/E/F are added from a verified source).
+            ("ETD 49/25/16", mid(47.60, 49.80), mid(24.50, 24.90), mid(16.10, 16.70),
+                             None, None, None,
+                             211.0, 114.0, 24000),
+            ("ETD 54/28/19", mid(53.20, 54.50), mid(27.40, 27.80), mid(18.50, 18.90),
+                             None, None, None,
+                             280.0, 127.0, 35500),
+            ("ETD 59/31/22", mid(58.50, 59.80), mid(30.80, 31.00), mid(21.20, 21.65),
+                             None, None, None,
+                             368.0, 139.0, 51500),
         ],
     },
     # ---------------------------------------------------------------------
@@ -145,6 +166,16 @@ SHEETS = {
                          mid(14.60, 14.90), mid(36.40, 37.60), mid(14.60, 15.20),
                          mid(28.00, 29.00), 7.75, 16.80,
                                                                    189.0, 93.0, 17600),
+            # PQ 50/50: A/B/C + Ae/Le/Ve from Ferroxcube 2013 handbook p.749.
+            # D/E/F/G/J/L intentionally None — figure-caption parsing was
+            # ambiguous; envelope check uses A/B/C only.
+            # Note: PQ 60/52 / PQ 65/44 / PQ 65/54 are TDK parts (not in
+            # Ferroxcube handbook) and remain absent from the catalog —
+            # core_envelope correctly reports them as "not in catalog".
+            ("PQ 50/50", mid(49.50, 50.50), mid(25.15, 25.85), mid(31.40, 32.60),
+                         None, None, None,
+                         None, None, None,
+                                                                   328.0, 113.0, 37100),
         ],
     },
     # ---------------------------------------------------------------------
