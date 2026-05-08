@@ -1,9 +1,11 @@
-# Custom Core Geometry Workflow
+# Custom Core Geometry — Calculation Mechanics
 
 ## When to use this guide
 The user is designing a transformer or inductor with a **non-standard core geometry** — i.e., starting from a catalog core (e.g., PQ20/20) and modifying one or more dimensions (typically H1 the total pair height, or H2 the total window height), or asking the agent to propose dimensions for a target Ae/Le.
 
 For standard catalog cores with no dimensional modifications, use the Frenetic core-selection guide instead.
+
+For the **end-to-end orchestration** of offering and executing custom-core design (intake, flag-not-gate, iteration loop, deliverable, infeasibility handling), see `core-customization-workflow.md`. This guide covers only the calculation mechanics that the workflow calls into.
 
 ## Available tools
 
@@ -17,14 +19,18 @@ The IEC 60205 closed-form formula and Frenetic's simulator can give **different 
 
 The disagreement is largest for PQ cores when the geometry is far from catalog proportions (very thick or very thin flanges, very short or very tall windows). It is not reducible to a single-variable correction; Frenetic appears to use FEM-style flux integration that captures 3D field effects the IEC closed-form formula misses.
 
-**Tolerance rule for the agent:**
-- **|Frenetic − IEC| ≤ 10% on Ae** → acceptable. Proceed with the design and use Frenetic's numbers as the trusted reference.
-- **|Frenetic − IEC| > 10% on Ae** → escalate. The geometry is in a regime where neither tool is reliable on its own. Recommend one of:
-  1. Try a different base core (one whose proportions are closer to catalog)
-  2. Re-check the dimensions entered in Frenetic for typos
-  3. Report the case to the Frenetic team for verification
+**v1 resolution rule — trust IEC, adjust Frenetic dimensions to match.**
 
-**This means**: any custom-geometry estimate the agent provides is a *starting point*, not the design's final number. The user must verify in Frenetic before locking the design.
+The IEC 60205 closed-form calculation is the authoritative geometry model and the basis of the **manufacturing specification**. When Frenetic disagrees on Ae or Le for a custom geometry, do **not** change the IEC spec — instead, iteratively adjust the dimensions entered into Frenetic so that Frenetic reports Ae and Le equal to the IEC-calculated targets. The Frenetic dimensions are only the **simulation geometry** and may legitimately differ from the manufacturing spec.
+
+Procedure when the user reports Frenetic's Ae/Le:
+1. Compare to the IEC-calculated targets.
+2. If they agree closely (within ±3% on Ae, ±2% on Le), accept and move on.
+3. If they diverge meaningfully, tweak a dimension in Frenetic (typically the one most sensitive — center-leg cross-section for Ae, magnetic-path-related dimensions for Le) and re-simulate.
+4. Repeat until Frenetic reports the IEC targets.
+5. Record: IEC dimensions = physical spec for manufacturing; Frenetic dimensions = simulation-only geometry.
+
+**This means**: any custom-geometry estimate the agent provides is a *starting point*, not the design's final number. The user must verify in Frenetic and — when numbers diverge — adjust Frenetic dimensions to match the IEC targets before locking the design.
 
 ## Standard workflow for custom geometry
 
@@ -37,7 +43,7 @@ The disagreement is largest for PQ cores when the geometry is far from catalog p
 3. **Present the result with the divergence disclosure.** Format:
    > *"Based on the IEC 60205 formula, this geometry gives Ae ≈ X mm² and Le ≈ Y mm. **Note that Frenetic's simulator can differ from IEC values by up to 10% on Ae** (Le agreement is typically within 3%) for non-catalog geometries. Please enter these dimensions in Frenetic and share the Ae and Le it reports — I'll iterate if needed."*
 
-4. **When the user reports Frenetic's numbers**, treat those as the ground truth. If they're close enough to the target, accept the geometry. If not, propose a small dimensional adjustment and repeat.
+4. **When the user reports Frenetic's numbers**, compare to the IEC targets. If they match closely, accept. If they diverge, apply the v1 resolution rule above: adjust the Frenetic dimensions (not the IEC spec) until Frenetic reports the IEC-calculated Ae/Le.
 
 5. **Before recommending a final design**, also check:
    - **Amin** (minimum cross-section) — flux density is `B = V·t / (N · Amin)`, not Ae. Saturation depends on Amin.
