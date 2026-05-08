@@ -10,7 +10,10 @@ from wattio.tools.base import BaseTool
 
 EXCEL_FILENAME = "POWER DENSITY.xlsx"
 
-# Column names from the Excel file
+# Header names as they appear in the Excel file. Lookups are tolerant
+# (whitespace + case insensitive) so harmless edits to the headers don't
+# break the tool — but a missing required header raises an explicit error
+# rather than silently picking the wrong column.
 COL_SOURCE = "SOURCE"
 COL_REFERENCE = "REFERENCE"
 COL_MAG_TYPE = "MAGNETIC TYPE"
@@ -21,14 +24,45 @@ COL_RATIO = "RATIO"
 COL_COOLING = "COOLING"
 COL_CORE = "CORE"
 COL_STACKS = "stacks"
-COL_TECHNOLOGY = "TECHNOLOGY "  # trailing space in the Excel header
+COL_TECHNOLOGY = "TECHNOLOGY"
 COL_VOL_EFF = "Volumen effective(l)"
-COL_POWER_DENSITY = "POWER DENSITY (kw/l)"
-COL_EFFICIENCY = "efficiency "  # trailing space in the Excel header
+COL_POWER_DENSITY = "DENSITY Ve (kw/l)"
+COL_EFFICIENCY = "efficiency"
 COL_TOTAL_LOSSES = "total magnetic losses"
 COL_WINDING_LOSSES = "winding"
 COL_CORE_LOSSES = "core"
 COL_SIMULATOR = "simulator"
+
+REQUIRED_COLS = (
+    COL_SOURCE, COL_REFERENCE, COL_MAG_TYPE, COL_TOPOLOGY,
+    COL_POWER, COL_FREQUENCY, COL_POWER_DENSITY,
+)
+
+
+def _normalize(s: object) -> str:
+    # Whitespace-tolerant only — case is preserved because the spreadsheet
+    # uses two columns that differ only by case ('CORE' = name, 'core' = losses).
+    return str(s or "").strip()
+
+
+def _build_header_index(headers: list) -> dict[str, int]:
+    """Map normalized header → column index (first match wins)."""
+    idx: dict[str, int] = {}
+    for i, h in enumerate(headers):
+        key = _normalize(h)
+        if key and key not in idx:
+            idx[key] = i
+    return idx
+
+
+def _safe_float(value: object) -> float:
+    """Coerce numeric cells; return 0.0 for blanks/strings/None."""
+    if value is None or value == "":
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _find_excel(project_dir: Path) -> Path:
@@ -60,50 +94,59 @@ def _load_and_search(
     wb = openpyxl.load_workbook(excel_path, data_only=True, read_only=True)
     ws = wb.active
 
-    # Parse header
     headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-    col = {name: idx for idx, name in enumerate(headers) if name is not None}
+    header_idx = _build_header_index(headers)
+
+    missing = [c for c in REQUIRED_COLS if _normalize(c) not in header_idx]
+    if missing:
+        wb.close()
+        raise RuntimeError(
+            f"Power-density spreadsheet is missing required column(s): "
+            f"{missing}. Found headers: {[h for h in headers if h]}"
+        )
+
+    def cell(row: tuple, col_name: str, default: object = "") -> object:
+        i = header_idx.get(_normalize(col_name))
+        if i is None or i >= len(row):
+            return default
+        v = row[i]
+        return default if v is None else v
 
     results: list[dict] = []
     topology_lower = topology.lower()
     mag_type_lower = magnetic_type.lower()
 
     for row in ws.iter_rows(min_row=2, values_only=True):
-        row_topology = str(row[col.get(COL_TOPOLOGY, 3)] or "").lower()
-        row_mag_type = str(row[col.get(COL_MAG_TYPE, 2)] or "").lower()
+        row_topology = str(cell(row, COL_TOPOLOGY)).lower()
+        row_mag_type = str(cell(row, COL_MAG_TYPE)).lower()
 
         if topology_lower not in row_topology:
             continue
         if mag_type_lower not in row_mag_type:
             continue
 
-        power_kw = row[col.get(COL_POWER, 4)] or 0
-        freq_khz = row[col.get(COL_FREQUENCY, 5)] or 0
-        power_density = row[col.get(COL_POWER_DENSITY, 12)] or 0
-
         results.append({
-            "source": row[col.get(COL_SOURCE, 0)] or "",
-            "reference": row[col.get(COL_REFERENCE, 1)] or "",
-            "topology": row[col.get(COL_TOPOLOGY, 3)] or "",
-            "power_kw": round(float(power_kw), 2),
-            "frequency_khz": round(float(freq_khz), 1),
-            "turns_ratio": row[col.get(COL_RATIO, 6)] or "",
-            "cooling": row[col.get(COL_COOLING, 7)] or "",
-            "core": row[col.get(COL_CORE, 8)] or "",
-            "stacks": row[col.get(COL_STACKS, 9)] or 1,
-            "technology": str(row[col.get(COL_TECHNOLOGY, 10)] or "").strip(),
-            "vol_effective_l": round(float(row[col.get(COL_VOL_EFF, 11)] or 0), 6),
-            "power_density_kw_l": round(float(power_density), 1),
-            "efficiency_pct": row[col.get(COL_EFFICIENCY, 15)] or "",
-            "total_losses_w": row[col.get(COL_TOTAL_LOSSES, 16)] or "",
-            "winding_losses_w": row[col.get(COL_WINDING_LOSSES, 17)] or "",
-            "core_losses_w": row[col.get(COL_CORE_LOSSES, 18)] or "",
-            "simulator_link": row[col.get(COL_SIMULATOR, 19)] or "",
+            "source": cell(row, COL_SOURCE),
+            "reference": cell(row, COL_REFERENCE),
+            "topology": cell(row, COL_TOPOLOGY),
+            "power_kw": round(_safe_float(cell(row, COL_POWER, 0)), 2),
+            "frequency_khz": round(_safe_float(cell(row, COL_FREQUENCY, 0)), 1),
+            "turns_ratio": cell(row, COL_RATIO),
+            "cooling": cell(row, COL_COOLING),
+            "core": cell(row, COL_CORE),
+            "stacks": cell(row, COL_STACKS, 1),
+            "technology": str(cell(row, COL_TECHNOLOGY)).strip(),
+            "vol_effective_l": round(_safe_float(cell(row, COL_VOL_EFF, 0)), 6),
+            "power_density_kw_l": round(_safe_float(cell(row, COL_POWER_DENSITY, 0)), 1),
+            "efficiency_pct": cell(row, COL_EFFICIENCY),
+            "total_losses_w": cell(row, COL_TOTAL_LOSSES),
+            "winding_losses_w": cell(row, COL_WINDING_LOSSES),
+            "core_losses_w": cell(row, COL_CORE_LOSSES),
+            "simulator_link": cell(row, COL_SIMULATOR),
         })
 
     wb.close()
 
-    # Sort by power density descending (best first)
     results.sort(key=lambda r: r["power_density_kw_l"], reverse=True)
     return results
 
