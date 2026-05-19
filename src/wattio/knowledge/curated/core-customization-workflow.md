@@ -59,11 +59,25 @@ If **any** stated constraint is missed or borderline by the best candidates:
 2. Offer the customization path alongside it.
 3. Let the user pick — **they may still accept a standard core that misses a constraint.** That is allowed; don't re-argue.
 
+## Step 3.5 — Complete the baseline design first (constraint-miss path only)
+
+**When this applies:** the user has chosen to address a constraint miss via customization (not just accept the out-of-constraint standard core).
+
+**What to do *before* touching any core dimensions:** finish the full design on the closest-matching standard candidate from Step 3.
+1. Size the windings (turns, wire/litz selection) on that standard core.
+2. Compute the loss breakdown (Pcu + Pfe) and the thermal estimate.
+3. Produce the concrete, quantified gap vs. each stated goal — e.g., *"height 14 mm vs. 12 mm limit; total loss 28 W vs. 24 W budget; ΔT 62 °C vs. 50 °C target"*. This baseline anchors the customization: the agent now optimizes against measured numbers, not against the abstract "you missed a constraint" flag.
+
+Present the baseline design to the user, then ask whether they want to proceed into customization to close that gap. Only after they confirm do you move to Step 4.
+
+**When this is SKIPPED:** the user-initiated customization path (testing / R&D — no failed constraint). Go straight to Step 4.
+
 ## Step 4 — Starting-core selection for customization
 
-Once the user accepts customization (or requests it directly):
-1. **Agent suggests** a starting standard core — typically the nearest-match from the failed search, or the electrically-sized candidate if user-initiated.
-2. **User can override** and pick a different standard core as the starting point. Accept their choice without pushback.
+Once the user accepts customization:
+1. **Constraint-miss path (came through Step 3.5):** the starting core **is** the one used in the Step 3.5 baseline — you already have its winding design, loss breakdown, and thermal numbers. Do not re-pick.
+2. **User-initiated path (skipped Step 3.5):** the agent suggests a starting standard core based on electrical sizing.
+3. In both cases, **user can override** and pick a different standard core as the starting point. Accept their choice without pushback (on the constraint-miss path, override means re-running the baseline on the new core before continuing).
 
 ## Step 5 — Pick the optimization objective
 
@@ -146,7 +160,8 @@ If no geometry in v1's shape-family (variations of a standard core) can satisfy 
 - [ ] Matched envelopes numerically and orientation-agnostically (sorted values, not named axes).
 - [ ] Flagged, not gated, any constraint miss.
 - [ ] Offered customization on any miss AND available on user request for testing.
-- [ ] Suggested a starting core but accepted user override.
+- [ ] **On the constraint-miss path: completed the full baseline design on the closest standard core (windings + losses + thermal) BEFORE entering customization.** Skipped this only on the user-initiated path.
+- [ ] Suggested a starting core but accepted user override. On the constraint-miss path, the starting core is the one from the baseline design.
 - [ ] Confirmed the optimization objective before iterating.
 - [ ] **Changed only the binding dimensions** — did NOT proportionally scale every dimension.
 - [ ] **Computed IEC Ae/Le/Ve via `compute_core` BEFORE asking the user to enter dimensions in Frenetic.** Never guessed from memory or datasheet numbers.
